@@ -22,7 +22,7 @@ use types::Authentication;
 
 // exports
 pub use errors::{InstagramScraperError, InstagramScraperResult};
-pub use types::{Stories, Story, StorySource, User};
+pub use types::{Post, Stories, Story, StorySource, User};
 
 /// instagram scraper client
 pub struct InstagramScraper {
@@ -77,6 +77,11 @@ impl InstagramScraper {
     /// Scrape user info
     pub async fn scrape_userinfo(&mut self, username: &str) -> InstagramScraperResult<User> {
         self.session.scrape_shared_data_userinfo(username).await
+    }
+
+    /// Scrape posts from user
+    pub async fn scrape_posts(&mut self, user_id: &str) -> InstagramScraperResult<Vec<Post>> {
+        self.session.scrape_posts(user_id).await
     }
 }
 

@@ -5,7 +5,21 @@
 use std::time::SystemTime;
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
-pub struct Post {}
+pub struct Post {
+    pub caption: Option<String>,
+    pub comments_disabled: bool,
+    pub comments: Option<usize>,
+    pub display_url: String,
+    pub height: usize,
+    pub id: String,
+    pub is_video: bool,
+    pub likes: Option<usize>,
+    pub media_preview: Option<String>,
+    pub taken_at_timestamp: SystemTime,
+    pub thumbnail_src: String,
+    pub video_view_count: usize,
+    pub width: usize,
+}
 
 /// Instagram stories
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
@@ -35,7 +49,7 @@ pub struct StorySource {
 }
 
 /// Describes the web profile query response
-#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Clone, Hash, Eq, PartialEq, Debug, Deserialize)]
 pub struct User {
     pub biography: Option<String>,
     pub blocked_by_viewer: bool,
@@ -93,7 +107,7 @@ impl User {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Clone, Hash, Eq, PartialEq, Debug, Deserialize)]
 pub struct FollowData {
     count: usize,
 }

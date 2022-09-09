@@ -27,15 +27,29 @@ async fn main() -> anyhow::Result<()> {
         user.following()
     );
     // get user stories
+    /*
     let stories = scraper.scrape_user_stories(&user.id).await?;
-    println!("available stories for {}:", profile);
-    for story in stories.main_stories {
-        println!("{}", story.url);
+    println!(
+        "there are {} stories for {}",
+        stories.main_stories.len(),
+        profile
+    );
+    println!(
+        "there are {} highlighted stories for {}",
+        stories.highlight_stories.len(),
+        profile
+    );
+    */
+    // get posts
+    let posts = scraper.scrape_posts(&user.id).await?;
+    println!("there are {} posts for {}", posts.len(), profile);
+    if let Some(post) = posts.get(0) {
+        println!(
+            "latest post: {}",
+            post.caption.as_deref().unwrap_or_default()
+        );
     }
-    println!("available highlighted stories for {}:", profile);
-    for story in stories.highlight_stories {
-        println!("{}", story.url);
-    }
+
     // logout
     let _ = scraper.logout().await;
     Ok(())

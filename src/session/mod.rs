@@ -2,7 +2,7 @@
 //!
 //! This module exposes the session for the instagram client
 
-use crate::{Authentication, InstagramScraperError, InstagramScraperResult};
+use crate::{Authentication, InstagramScraperError, InstagramScraperResult, Post};
 
 use reqwest::{header, Client, ClientBuilder};
 
@@ -150,7 +150,7 @@ impl Session {
     }
 
     /// Scrape posts published by user associated to `user_id`
-    pub async fn scrape_posts(&mut self, user_id: &str) -> InstagramScraperResult<Vec<()>> {
+    pub async fn scrape_posts(&mut self, user_id: &str) -> InstagramScraperResult<Vec<Post>> {
         self.restrict_authed()?;
         debug!("collecting posts for {}", user_id);
         // TODO: allow max queries / max items
@@ -168,7 +168,6 @@ impl Session {
                 .send()
                 .await?;
             Self::restrict_successful(&response)?;
-            panic!("{}", response.text().await.unwrap());
             match response
                 .text()
                 .await
@@ -176,8 +175,19 @@ impl Session {
             {
                 Err(err) => return Err(err.into()),
                 Ok(Ok(post_response)) => {
-                    cursor = post_response.end_cursor().to_string();
-                    // get nodes
+                    let new_cursor = post_response.end_cursor().to_string();
+                    let response_posts = post_response.posts();
+                    debug!("found {} posts", response_posts.len());
+                    posts.extend(response_posts);
+                    debug!(
+                        "checking cursor; new cursor: {}; last cursor: {}",
+                        new_cursor, cursor
+                    );
+                    if new_cursor == cursor {
+                        debug!("leaving loop");
+                        break;
+                    }
+                    cursor = new_cursor;
                 }
                 Ok(Err(err)) => return Err(err.into()),
             }
@@ -402,7 +412,7 @@ mod test {
         let mut session = Session::default();
         assert!(session.login(Authentication::Guest).await.is_ok());
         let user_id = session
-            .scrape_shared_data_userinfo("chiaraferragni")
+            .scrape_shared_data_userinfo("tamadogecoin")
             .await
             .unwrap()
             .id;
@@ -414,7 +424,7 @@ mod test {
         let mut session = Session::default();
         assert!(session.login(Authentication::Guest).await.is_ok());
         let user_id = session
-            .scrape_shared_data_userinfo("chiaraferragni")
+            .scrape_shared_data_userinfo("tamadogecoin")
             .await
             .unwrap()
             .id;

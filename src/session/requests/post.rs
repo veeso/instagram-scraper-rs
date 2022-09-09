@@ -87,7 +87,7 @@ pub struct PostResponseDimensions {
 
 #[derive(Debug, Deserialize)]
 pub struct PostResponseNodeCounter {
-    pub count: usize,
+    pub count: isize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -103,4 +103,38 @@ pub struct PostResponseCaptionEdge {
 #[derive(Debug, Deserialize)]
 pub struct PostResponseCaptionNode {
     pub text: String,
+}
+
+impl From<PostResponseNode> for Post {
+    fn from(node: PostResponseNode) -> Self {
+        let caption = node
+            .edge_media_to_caption
+            .edges
+            .into_iter()
+            .map(|x| x.node.text)
+            .next();
+        Self {
+            caption,
+            comments_disabled: node.comments_disabled,
+            comments: if node.edge_media_to_comment.count < 0 {
+                None
+            } else {
+                Some(node.edge_media_to_comment.count as usize)
+            },
+            display_url: node.display_url,
+            height: node.dimensions.height,
+            id: node.id,
+            is_video: node.is_video,
+            likes: if node.edge_media_preview_like.count < 0 {
+                None
+            } else {
+                Some(node.edge_media_preview_like.count as usize)
+            },
+            media_preview: node.media_preview,
+            taken_at_timestamp: node.taken_at_timestamp,
+            thumbnail_src: node.thumbnail_src,
+            video_view_count: node.video_view_count.unwrap_or_default(),
+            width: node.dimensions.width,
+        }
+    }
 }
