@@ -19,7 +19,23 @@ async fn main() -> anyhow::Result<()> {
     scraper.login().await?;
     // get user info
     let user = scraper.scrape_userinfo(&profile).await?;
-    println!("{}: {}", user.username, user.biography.unwrap_or_default());
+    println!(
+        "{}: {} (followers: {}; following {})",
+        user.username,
+        user.biography.as_deref().unwrap_or_default(),
+        user.followers(),
+        user.following()
+    );
+    // get user stories
+    let stories = scraper.scrape_user_stories(&user.id).await?;
+    println!("available stories for {}:", profile);
+    for story in stories.main_stories {
+        println!("{}", story.url);
+    }
+    println!("available highlighted stories for {}:", profile);
+    for story in stories.highlight_stories {
+        println!("{}", story.url);
+    }
     // logout
     let _ = scraper.logout().await;
     Ok(())

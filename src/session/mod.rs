@@ -9,7 +9,7 @@ use reqwest::{header, Client, ClientBuilder};
 mod requests;
 use requests::{BASE_URL, LOGIN_URL, LOGOUT_URL, STORIES_USER_AGENT, X_CSRF_TOKEN};
 
-pub use requests::User;
+pub use crate::{Stories, Story, User};
 
 /// The session is a storage for values required by the instagram client to work.
 /// It also exposes the instagram HTTP client
@@ -57,6 +57,7 @@ impl Session {
         user_id: &str,
     ) -> InstagramScraperResult<Option<String>> {
         self.restrict_authed()?;
+        debug!("collecting profile pic for {}", user_id);
         let response = self
             .client
             .get(format!(
@@ -118,6 +119,70 @@ impl Session {
             Ok(Ok(user)) => Ok(user),
             Ok(Err(err)) => Err(err.into()),
         }
+    }
+
+    /// Scrape user stories
+    pub async fn scrape_stories(&mut self, user_id: &str) -> InstagramScraperResult<Stories> {
+        self.restrict_authed()?;
+        debug!("collecting stories for {}", user_id);
+        let main_stories = self.fetch_stories(format!("{}graphql/query/?query_hash=45246d3fe16ccc6577e0bd297a5db1ab&variables=%7B%22reel_ids%22%3A%5B%22{}%22%5D%2C%22tag_names%22%3A%5B%5D%2C%22location_ids%22%3A%5B%5D%2C%22highlight_reel_ids%22%3A%5B%5D%2C%22precomposed_overlay%22%3Afalse%7D", BASE_URL, user_id))
+            .await?;
+        debug!("collected main stories; collecting highlight stories");
+        // fetch highlight stories
+        let highlight_stories_ids = self.fetch_highlighted_stories_ids(user_id).await?;
+        debug!(
+            "found {} ids for highlighted stories",
+            highlight_stories_ids.len()
+        );
+        let mut highlight_stories = Vec::with_capacity(highlight_stories_ids.len());
+        for chunk in highlight_stories_ids.chunks(3) {
+            let id = chunk.join("%22%2C%22");
+            debug!("fetching stories in chunk {}", id);
+            highlight_stories.extend(
+                self.fetch_stories(format!("{}graphql/query/?query_hash=45246d3fe16ccc6577e0bd297a5db1ab&variables=%7B%22reel_ids%22%3A%5B%5D%2C%22tag_names%22%3A%5B%5D%2C%22location_ids%22%3A%5B%5D%2C%22highlight_reel_ids%22%3A%5B%22{}%22%5D%2C%22precomposed_overlay%22%3Afalse%7D", BASE_URL, id)).await?
+            );
+        }
+
+        Ok(Stories {
+            main_stories,
+            highlight_stories,
+        })
+    }
+
+    /// Scrape posts published by user associated to `user_id`
+    pub async fn scrape_posts(&mut self, user_id: &str) -> InstagramScraperResult<Vec<()>> {
+        self.restrict_authed()?;
+        debug!("collecting posts for {}", user_id);
+        // TODO: allow max queries / max items
+        let mut posts = Vec::new();
+        let mut cursor = String::default();
+        loop {
+            debug!("collecting 50 posts from {}", cursor);
+            let params = format!(r#"{{"id":"{}","first":50,"after":"{}"}}"#, user_id, cursor);
+            let response = self
+                .client
+                .get(format!(
+                    "{}graphql/query/?query_hash=42323d64886122307be10013ad2dcc44&variables={}",
+                    BASE_URL, params
+                ))
+                .send()
+                .await?;
+            Self::restrict_successful(&response)?;
+            panic!("{}", response.text().await.unwrap());
+            match response
+                .text()
+                .await
+                .map(|t| serde_json::from_str::<requests::PostResponse>(&t))
+            {
+                Err(err) => return Err(err.into()),
+                Ok(Ok(post_response)) => {
+                    cursor = post_response.end_cursor().to_string();
+                    // get nodes
+                }
+                Ok(Err(err)) => return Err(err.into()),
+            }
+        }
+        Ok(posts)
     }
 
     // -- private
@@ -206,6 +271,38 @@ impl Session {
         {
             Some(cookie) => Ok(cookie),
             None => Err(InstagramScraperError::CsrfTokenIsMissing),
+        }
+    }
+
+    /// Fetch stories from url
+    async fn fetch_stories(&mut self, url: String) -> InstagramScraperResult<Vec<Story>> {
+        debug!("fetching user stories at {}", url);
+        let response = self.client.get(url).send().await?;
+        match response
+            .text()
+            .await
+            .map(|t| serde_json::from_str::<requests::ReelsMedia>(&t).map(|i| i.items()))
+        {
+            Err(err) => Err(err.into()),
+            Ok(Ok(stories)) => Ok(stories.into_iter().map(Story::from).collect()),
+            Ok(Err(err)) => Err(err.into()),
+        }
+    }
+
+    /// Fetch highlighted stories ids
+    async fn fetch_highlighted_stories_ids(
+        &mut self,
+        user_id: &str,
+    ) -> InstagramScraperResult<Vec<String>> {
+        let response = self.client.get(format!("{}graphql/query/?query_hash=c9100bf9110dd6361671f113dd02e7d6&variables=%7B%22user_id%22%3A%22{}%22%2C%22include_chaining%22%3Afalse%2C%22include_reel%22%3Afalse%2C%22include_suggested_users%22%3Afalse%2C%22include_logged_out_extras%22%3Afalse%2C%22include_highlight_reels%22%3Atrue%2C%22include_related_profiles%22%3Afalse%7D", BASE_URL, user_id)).send().await?;
+        match response
+            .text()
+            .await
+            .map(|t| serde_json::from_str::<requests::HighlightReels>(&t).map(|i| i.node_ids()))
+        {
+            Err(err) => Err(err.into()),
+            Ok(Ok(ids)) => Ok(ids),
+            Ok(Err(err)) => Err(err.into()),
         }
     }
 
@@ -298,5 +395,29 @@ mod test {
                 .as_str(),
             "bigluca.marketing"
         );
+    }
+
+    #[tokio::test]
+    async fn should_scrape_user_stories() {
+        let mut session = Session::default();
+        assert!(session.login(Authentication::Guest).await.is_ok());
+        let user_id = session
+            .scrape_shared_data_userinfo("chiaraferragni")
+            .await
+            .unwrap()
+            .id;
+        assert!(session.scrape_stories(&user_id).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn should_scrape_user_posts() {
+        let mut session = Session::default();
+        assert!(session.login(Authentication::Guest).await.is_ok());
+        let user_id = session
+            .scrape_shared_data_userinfo("chiaraferragni")
+            .await
+            .unwrap()
+            .id;
+        assert!(session.scrape_posts(&user_id).await.is_ok());
     }
 }

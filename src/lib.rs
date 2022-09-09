@@ -15,18 +15,14 @@ extern crate serde;
 
 mod errors;
 mod session;
+mod types;
 
 use session::Session;
+use types::Authentication;
 
+// exports
 pub use errors::{InstagramScraperError, InstagramScraperResult};
-pub use session::User;
-
-#[derive(Debug, Clone)]
-/// Defines the user authentication method
-enum Authentication {
-    UsernamePassword { username: String, password: String },
-    Guest,
-}
+pub use types::{Stories, Story, StorySource, User};
 
 /// instagram scraper client
 pub struct InstagramScraper {
@@ -64,12 +60,18 @@ impl InstagramScraper {
     }
 
     /// Scrape profile HD picture if any. Returns the URL.
-    /// The user id can be retrieved with
+    /// The user id can be retrieved with `scrape_userinfo`
     pub async fn scrape_profile_pic(
         &mut self,
         user_id: &str,
     ) -> InstagramScraperResult<Option<String>> {
         self.session.scrape_profile_pic(user_id).await
+    }
+
+    /// Scrape profile HD picture if any. Returns the URL.
+    /// The user id can be retrieved with `scrape_userinfo`
+    pub async fn scrape_user_stories(&mut self, user_id: &str) -> InstagramScraperResult<Stories> {
+        self.session.scrape_stories(user_id).await
     }
 
     /// Scrape user info

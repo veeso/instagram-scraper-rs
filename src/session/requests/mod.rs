@@ -5,10 +5,14 @@
 use const_format::concatcp;
 
 mod auth;
+mod post;
+mod stories;
 mod user;
 
 pub use auth::{LogoutRequest, UsernamePasswordLoginRequest, UsernamePasswordLoginResponse};
-pub use user::{Image, User, UserInfoResponse, UserInfoUser, WebProfileResponse};
+pub use post::PostResponse;
+pub use stories::{HighlightReels, ReelsMedia};
+pub use user::{Image, UserInfoResponse, UserInfoUser, WebProfileResponse};
 
 // -- constrants
 pub const X_CSRF_TOKEN: &str = "X-CSRFToken";
