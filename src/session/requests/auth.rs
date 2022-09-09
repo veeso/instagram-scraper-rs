@@ -29,7 +29,7 @@ impl UsernamePasswordLoginRequest {
         }
     }
 
-    pub fn to_form(self) -> Vec<(String, String)> {
+    pub fn form(self) -> Vec<(String, String)> {
         vec![
             ("username".to_string(), self.username),
             ("enc_password".to_string(), self.enc_password),
@@ -60,7 +60,7 @@ impl LogoutRequest {
         }
     }
 
-    pub fn to_form(self) -> Vec<(String, String)> {
+    pub fn form(self) -> Vec<(String, String)> {
         vec![("csrfmiddlewaretoken".to_string(), self.csrfmiddlewaretoken)]
     }
 }

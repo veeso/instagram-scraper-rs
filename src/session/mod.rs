@@ -64,7 +64,7 @@ impl Session {
             .client
             .get(format!(
                 "https://i.instagram.com/api/v1/users/{}/info/",
-                user_id.to_string()
+                user_id
             ))
             .send()
             .await?;
@@ -85,14 +85,7 @@ impl Session {
             debug!("searching user profile pic in versions");
             Ok(user_info
                 .hd_profile_pic_versions
-                .map(|images| {
-                    images
-                        .into_iter()
-                        .rev()
-                        .find(|img| img.url.is_some())
-                        .map(|img| img.url.unwrap())
-                })
-                .flatten())
+                .and_then(|images| images.into_iter().rev().find_map(|img| img.url)))
         }
     }
 
@@ -241,7 +234,7 @@ impl Session {
             let response = self
                 .client
                 .post(LOGOUT_URL)
-                .form(&requests::LogoutRequest::new(csrf_token.to_string()).to_form())
+                .form(&requests::LogoutRequest::new(csrf_token.to_string()).form())
                 .header(header::REFERER, BASE_URL)
                 .header(X_CSRF_TOKEN, csrf_token.to_string())
                 .header("X-Requested-With", "XMLHttpRequest")
@@ -278,7 +271,7 @@ impl Session {
             .post(LOGIN_URL)
             .form(
                 requests::UsernamePasswordLoginRequest::new(username, password)
-                    .to_form()
+                    .form()
                     .as_slice(),
             )
             .header(header::REFERER, BASE_URL)
