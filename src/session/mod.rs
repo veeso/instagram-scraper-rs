@@ -11,6 +11,8 @@ use requests::{BASE_URL, LOGIN_URL, LOGOUT_URL, STORIES_USER_AGENT, X_CSRF_TOKEN
 
 pub use crate::{Stories, Story, User};
 
+const DEFAULT_POST_AMOUNT: usize = 50;
+
 /// The session is a storage for values required by the instagram client to work.
 /// It also exposes the instagram HTTP client
 #[derive(Debug)]
@@ -122,13 +124,24 @@ impl Session {
     }
 
     /// Scrape user stories
-    pub async fn scrape_stories(&mut self, user_id: &str) -> InstagramScraperResult<Stories> {
+    pub async fn scrape_stories(
+        &mut self,
+        user_id: &str,
+        max_highlight_stories: usize,
+    ) -> InstagramScraperResult<Stories> {
         self.restrict_authed()?;
         debug!("collecting stories for {}", user_id);
         let main_stories = self.fetch_stories(format!("{}graphql/query/?query_hash=45246d3fe16ccc6577e0bd297a5db1ab&variables=%7B%22reel_ids%22%3A%5B%22{}%22%5D%2C%22tag_names%22%3A%5B%5D%2C%22location_ids%22%3A%5B%5D%2C%22highlight_reel_ids%22%3A%5B%5D%2C%22precomposed_overlay%22%3Afalse%7D", BASE_URL, user_id))
             .await?;
         debug!("collected main stories; collecting highlight stories");
         // fetch highlight stories
+        if max_highlight_stories == 0 {
+            warn!("max_highlight_stories is 0; return empty vector");
+            return Ok(Stories {
+                main_stories,
+                highlight_stories: vec![],
+            });
+        }
         let highlight_stories_ids = self.fetch_highlighted_stories_ids(user_id).await?;
         debug!(
             "found {} ids for highlighted stories",
@@ -141,6 +154,17 @@ impl Session {
             highlight_stories.extend(
                 self.fetch_stories(format!("{}graphql/query/?query_hash=45246d3fe16ccc6577e0bd297a5db1ab&variables=%7B%22reel_ids%22%3A%5B%5D%2C%22tag_names%22%3A%5B%5D%2C%22location_ids%22%3A%5B%5D%2C%22highlight_reel_ids%22%3A%5B%22{}%22%5D%2C%22precomposed_overlay%22%3Afalse%7D", BASE_URL, id)).await?
             );
+            if highlight_stories.len() >= max_highlight_stories {
+                debug!("reached maximum amount of highlight stories; leaving loop");
+                break;
+            }
+        }
+        // remove exceeding items
+        if highlight_stories.len() > max_highlight_stories {
+            let curlen = highlight_stories.len();
+            for i in curlen..max_highlight_stories {
+                highlight_stories.remove(i);
+            }
         }
 
         Ok(Stories {
@@ -149,16 +173,30 @@ impl Session {
         })
     }
 
-    /// Scrape posts published by user associated to `user_id`
-    pub async fn scrape_posts(&mut self, user_id: &str) -> InstagramScraperResult<Vec<Post>> {
+    /// Scrape posts published by user associated to `user_id`.
+    /// You can provide the maximum amount of posts to fetch. Use usize::MAX to get all the available posts.
+    /// Keep in mind that a GET request will be sent each 50 posts.
+    pub async fn scrape_posts(
+        &mut self,
+        user_id: &str,
+        max_posts: usize,
+    ) -> InstagramScraperResult<Vec<Post>> {
         self.restrict_authed()?;
-        debug!("collecting posts for {}", user_id);
-        // TODO: allow max queries / max items
+        debug!("collecting up to {} posts for {}", max_posts, user_id);
         let mut posts = Vec::new();
         let mut cursor = String::default();
         loop {
-            debug!("collecting 50 posts from {}", cursor);
-            let params = format!(r#"{{"id":"{}","first":50,"after":"{}"}}"#, user_id, cursor);
+            let amount = if posts.len() + DEFAULT_POST_AMOUNT > max_posts {
+                max_posts.saturating_sub(posts.len())
+            } else {
+                DEFAULT_POST_AMOUNT
+            };
+
+            debug!("collecting {} posts from {}", amount, cursor);
+            let params = format!(
+                r#"{{"id":"{}","first":{},"after":"{}"}}"#,
+                user_id, amount, cursor
+            );
             let response = self
                 .client
                 .get(format!(
@@ -183,7 +221,7 @@ impl Session {
                         "checking cursor; new cursor: {}; last cursor: {}",
                         new_cursor, cursor
                     );
-                    if new_cursor == cursor {
+                    if new_cursor == cursor || posts.len() >= max_posts {
                         debug!("leaving loop");
                         break;
                     }
@@ -416,7 +454,7 @@ mod test {
             .await
             .unwrap()
             .id;
-        assert!(session.scrape_stories(&user_id).await.is_ok());
+        assert!(session.scrape_stories(&user_id, 9).await.is_ok());
     }
 
     #[tokio::test]
@@ -428,6 +466,6 @@ mod test {
             .await
             .unwrap()
             .id;
-        assert!(session.scrape_posts(&user_id).await.is_ok());
+        assert!(session.scrape_posts(&user_id, 100).await.is_ok());
     }
 }

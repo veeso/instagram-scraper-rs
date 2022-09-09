@@ -70,8 +70,16 @@ impl InstagramScraper {
 
     /// Scrape profile HD picture if any. Returns the URL.
     /// The user id can be retrieved with `scrape_userinfo`
-    pub async fn scrape_user_stories(&mut self, user_id: &str) -> InstagramScraperResult<Stories> {
-        self.session.scrape_stories(user_id).await
+    /// You can provide the maximum amount of posts to fetch. Use usize::MAX to get all the available stproes.
+    /// Keep in mind that a GET request will be sent each 3 highlighted stories.
+    pub async fn scrape_user_stories(
+        &mut self,
+        user_id: &str,
+        max_highlight_stories: usize,
+    ) -> InstagramScraperResult<Stories> {
+        self.session
+            .scrape_stories(user_id, max_highlight_stories)
+            .await
     }
 
     /// Scrape user info
@@ -79,9 +87,19 @@ impl InstagramScraper {
         self.session.scrape_shared_data_userinfo(username).await
     }
 
-    /// Scrape posts from user
-    pub async fn scrape_posts(&mut self, user_id: &str) -> InstagramScraperResult<Vec<Post>> {
-        self.session.scrape_posts(user_id).await
+    /// Scrape posts from user.
+    /// You can provide the maximum amount of posts to fetch. Use usize::MAX to get all the available posts.
+    /// Keep in mind that a GET request will be sent each 50 posts.
+    pub async fn scrape_posts(
+        &mut self,
+        user_id: &str,
+        max_posts: usize,
+    ) -> InstagramScraperResult<Vec<Post>> {
+        if max_posts == 0 {
+            warn!("max_posts is 0; return empty vector");
+            return Ok(vec![]);
+        }
+        self.session.scrape_posts(user_id, max_posts).await
     }
 }
 

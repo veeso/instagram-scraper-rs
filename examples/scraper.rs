@@ -27,8 +27,7 @@ async fn main() -> anyhow::Result<()> {
         user.following()
     );
     // get user stories
-    /*
-    let stories = scraper.scrape_user_stories(&user.id).await?;
+    let stories = scraper.scrape_user_stories(&user.id, 10).await?;
     println!(
         "there are {} stories for {}",
         stories.main_stories.len(),
@@ -39,9 +38,8 @@ async fn main() -> anyhow::Result<()> {
         stories.highlight_stories.len(),
         profile
     );
-    */
     // get posts
-    let posts = scraper.scrape_posts(&user.id).await?;
+    let posts = scraper.scrape_posts(&user.id, 10).await?;
     println!("there are {} posts for {}", posts.len(), profile);
     if let Some(post) = posts.get(0) {
         println!(
