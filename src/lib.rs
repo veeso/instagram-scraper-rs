@@ -16,8 +16,10 @@ extern crate serde;
 mod errors;
 mod session;
 
-pub use errors::{InstagramScraperError, InstagramScraperResult};
 use session::Session;
+
+pub use errors::{InstagramScraperError, InstagramScraperResult};
+pub use session::User;
 
 #[derive(Debug, Clone)]
 /// Defines the user authentication method
@@ -46,8 +48,9 @@ impl InstagramScraper {
         self
     }
 
-    pub async fn do_login(&mut self) -> InstagramScraperResult<()> {
-        self.login().await
+    /// Login to instagram
+    pub async fn login(&mut self) -> InstagramScraperResult<()> {
+        self.session.login(self.auth.clone()).await
     }
 
     /// Logout from instagram account
@@ -60,9 +63,18 @@ impl InstagramScraper {
         Ok(())
     }
 
-    /// Login to instagram
-    async fn login(&mut self) -> InstagramScraperResult<()> {
-        self.session.login(self.auth.clone()).await
+    /// Scrape profile HD picture if any. Returns the URL.
+    /// The user id can be retrieved with
+    pub async fn scrape_profile_pic(
+        &mut self,
+        user_id: &str,
+    ) -> InstagramScraperResult<Option<String>> {
+        self.session.scrape_profile_pic(user_id).await
+    }
+
+    /// Scrape user info
+    pub async fn scrape_userinfo(&mut self, username: &str) -> InstagramScraperResult<User> {
+        self.session.scrape_shared_data_userinfo(username).await
     }
 }
 

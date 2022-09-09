@@ -2,10 +2,7 @@
 //!
 //! Login related requests
 
-use std::{
-    collections::HashMap,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Request body for username password login
 #[derive(Debug)]

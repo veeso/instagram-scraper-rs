@@ -17,8 +17,16 @@ pub enum InstagramScraperError {
     AuthenticationFailed { status: String, message: String },
     #[error("HTTP request response has a bad status code: {0}")]
     RequestFailed(reqwest::StatusCode),
+    #[error("response has a bad payload: {0}")]
+    BadPayload(serde_json::Error),
     #[error("HTTP error: {0}")]
     Http(reqwest::Error),
+}
+
+impl From<serde_json::Error> for InstagramScraperError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::BadPayload(e)
+    }
 }
 
 impl From<reqwest::StatusCode> for InstagramScraperError {

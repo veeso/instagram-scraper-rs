@@ -7,9 +7,9 @@ use crate::{Authentication, InstagramScraperError, InstagramScraperResult};
 use reqwest::{header, Client, ClientBuilder};
 
 mod requests;
-use requests::{
-    BASE_URL, CHROME_WIN_USER_AGENT, LOGIN_URL, LOGOUT_URL, STORIES_USER_AGENT, X_CSRF_TOKEN,
-};
+use requests::{BASE_URL, LOGIN_URL, LOGOUT_URL, STORIES_USER_AGENT, X_CSRF_TOKEN};
+
+pub use requests::User;
 
 /// The session is a storage for values required by the instagram client to work.
 /// It also exposes the instagram HTTP client
@@ -25,7 +25,7 @@ impl Default for Session {
             csrftoken: None,
             client: ClientBuilder::new()
                 .cookie_store(true)
-                .user_agent(CHROME_WIN_USER_AGENT)
+                .user_agent(STORIES_USER_AGENT)
                 .build()
                 .unwrap(),
         }
@@ -48,6 +48,79 @@ impl Session {
         self.csrftoken = Some(token);
         Ok(())
     }
+
+    /// Scrape profile picture for provided username.
+    ///
+    /// Returns the image url
+    pub async fn scrape_profile_pic(
+        &mut self,
+        user_id: &str,
+    ) -> InstagramScraperResult<Option<String>> {
+        self.restrict_authed()?;
+        let response = self
+            .client
+            .get(format!(
+                "https://i.instagram.com/api/v1/users/{}/info/",
+                user_id.to_string()
+            ))
+            .send()
+            .await?;
+        Self::restrict_successful(&response)?;
+        let user_info = response
+            .text()
+            .await
+            .map(|t| serde_json::from_str::<requests::UserInfoResponse>(&t).map(|u| u.user))?;
+        let user_info = user_info?;
+        if user_info.has_anonymous_profile_picture.unwrap_or_default() {
+            debug!("user has anonymous profile picture");
+            return Ok(None);
+        }
+        if let Some(url) = user_info.hd_profile_pic_url_info.url {
+            debug!("found hd profile pic {}", url);
+            Ok(Some(url))
+        } else {
+            debug!("searching user profile pic in versions");
+            Ok(user_info
+                .hd_profile_pic_versions
+                .map(|images| {
+                    images
+                        .into_iter()
+                        .rev()
+                        .find(|img| img.url.is_some())
+                        .map(|img| img.url.unwrap())
+                })
+                .flatten())
+        }
+    }
+
+    /// Scrape shared data for user
+    pub async fn scrape_shared_data_userinfo(
+        &mut self,
+        username: &str,
+    ) -> InstagramScraperResult<User> {
+        self.restrict_authed()?;
+        debug!("collecting user info for {}", username);
+        let response = self
+            .client
+            .get(format!(
+                "https://i.instagram.com/api/v1/users/web_profile_info/?username={}",
+                username
+            ))
+            .send()
+            .await?;
+        Self::restrict_successful(&response)?;
+        match response
+            .text()
+            .await
+            .map(|t| serde_json::from_str::<requests::WebProfileResponse>(&t).map(|i| i.data.user))
+        {
+            Err(err) => Err(err.into()),
+            Ok(Ok(user)) => Ok(user),
+            Ok(Err(err)) => Err(err.into()),
+        }
+    }
+
+    // -- private
 
     /// Logout from Instagram
     pub(crate) async fn logout(&mut self) -> InstagramScraperResult<()> {
@@ -140,9 +213,22 @@ impl Session {
     ///
     /// it must be called as `Self::restrict_successful(&response)?;`
     fn restrict_successful(response: &reqwest::Response) -> InstagramScraperResult<()> {
+        debug!("response status {}", response.status());
         match response.status().is_success() {
             true => Ok(()),
             false => Err(InstagramScraperError::from(response.status())),
+        }
+    }
+
+    /// This function puts a restriction on a function flow to return in case we're not authenticated
+    fn restrict_authed(&self) -> InstagramScraperResult<()> {
+        trace!("checking authentication");
+        if self.authed() {
+            trace!("authed");
+            Ok(())
+        } else {
+            error!("unauthenticated user, but authentication is required");
+            Err(InstagramScraperError::Unauthenticated)
         }
     }
 }
@@ -181,5 +267,36 @@ mod test {
             .await
             .is_ok());
         assert!(session.authed());
+    }
+
+    #[tokio::test]
+    async fn should_scrape_user_profile_picture() {
+        let mut session = Session::default();
+        assert!(session.login(Authentication::Guest).await.is_ok());
+        let user_id = session
+            .scrape_shared_data_userinfo("bigluca.marketing")
+            .await
+            .unwrap()
+            .id;
+        assert!(session
+            .scrape_profile_pic(&user_id)
+            .await
+            .unwrap()
+            .is_some());
+    }
+
+    #[tokio::test]
+    async fn should_scrape_shared_userinfo() {
+        let mut session = Session::default();
+        assert!(session.login(Authentication::Guest).await.is_ok());
+        assert_eq!(
+            session
+                .scrape_shared_data_userinfo("bigluca.marketing")
+                .await
+                .unwrap()
+                .username
+                .as_str(),
+            "bigluca.marketing"
+        );
     }
 }
