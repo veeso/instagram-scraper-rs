@@ -4,7 +4,7 @@
 
 use crate::{Authentication, InstagramScraperError, InstagramScraperResult, Post};
 
-use reqwest::{header, Client, ClientBuilder};
+use reqwest::{header, Client, ClientBuilder, Response};
 
 mod requests;
 use requests::{BASE_URL, LOGIN_URL, LOGOUT_URL, STORIES_USER_AGENT, X_CSRF_TOKEN};
@@ -69,6 +69,7 @@ impl Session {
             .send()
             .await?;
         Self::restrict_successful(&response)?;
+        self.update_csrftoken(&response);
         let user_info = response
             .text()
             .await
@@ -105,6 +106,7 @@ impl Session {
             .send()
             .await?;
         Self::restrict_successful(&response)?;
+        self.update_csrftoken(&response);
         match response
             .text()
             .await
@@ -199,6 +201,7 @@ impl Session {
                 .send()
                 .await?;
             Self::restrict_successful(&response)?;
+            self.update_csrftoken(&response);
             match response
                 .text()
                 .await
@@ -235,9 +238,6 @@ impl Session {
                 .client
                 .post(LOGOUT_URL)
                 .form(&requests::LogoutRequest::new(csrf_token.to_string()).form())
-                .header(header::REFERER, BASE_URL)
-                .header(X_CSRF_TOKEN, csrf_token.to_string())
-                .header("X-Requested-With", "XMLHttpRequest")
                 .send()
                 .await?;
             Self::restrict_successful(&response)
@@ -312,6 +312,18 @@ impl Session {
         {
             Some(cookie) => Ok(cookie),
             None => Err(InstagramScraperError::CsrfTokenIsMissing),
+        }
+    }
+
+    /// Update csrf token
+    fn update_csrftoken(&mut self, response: &Response) {
+        let mut cookies = response.cookies();
+        if let Some(token) = cookies
+            .find(|x| x.name() == "csrftoken")
+            .map(|x| x.value().to_string())
+        {
+            debug!("new csrftoken: {}", token);
+            self.csrftoken = Some(token);
         }
     }
 

@@ -49,6 +49,8 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // logout
-    let _ = scraper.logout().await;
-    Ok(())
+    scraper
+        .logout()
+        .await
+        .map_err(|e| anyhow::anyhow!("logout failed: {}", e))
 }
