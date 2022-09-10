@@ -487,22 +487,6 @@ mod test {
     }
 
     #[tokio::test]
-    async fn should_scrape_shared_userinfo() {
-        let mut session = Session::default();
-        assert!(session.login(Authentication::Guest).await.is_ok());
-        assert_eq!(
-            session
-                .scrape_shared_data_userinfo("bigluca.marketing")
-                .await
-                .unwrap()
-                .username
-                .as_str(),
-            "bigluca.marketing"
-        );
-        assert!(session.logout().await.is_ok());
-    }
-
-    #[tokio::test]
     async fn should_login_as_user_and_scrape_all() {
         let mut session = user_login().await;
         assert!(session.authed());
