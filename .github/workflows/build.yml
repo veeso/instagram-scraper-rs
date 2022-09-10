@@ -23,6 +23,8 @@ jobs:
           args: --features github-ci --no-fail-fast
         env:
           RUST_LOG: trace
+          INSTAGRAM_USERNAME: ${{ secrets.INSTAGRAM_USERNAME }}
+          INSTAGRAM_PASSWORD: ${{ secrets.INSTAGRAM_PASSWORD }}
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy

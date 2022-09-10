@@ -13,13 +13,13 @@ pub struct PostResponse {
 }
 
 impl PostResponse {
-    pub fn end_cursor(&self) -> &str {
-        &self
-            .data
+    pub fn end_cursor(&self) -> Option<&str> {
+        self.data
             .user
             .edge_owner_to_timeline_media
             .page_info
             .end_cursor
+            .as_deref()
     }
 
     pub fn posts(self) -> Vec<Post> {
@@ -56,7 +56,7 @@ pub struct PostResponseEdge {
 
 #[derive(Debug, Deserialize)]
 pub struct PostResponsePageInfo {
-    pub end_cursor: String,
+    pub end_cursor: Option<String>,
 }
 
 #[serde_as]
@@ -74,6 +74,7 @@ pub struct PostResponseNode {
     /// Likes amount
     pub edge_media_preview_like: PostResponseNodeCounter,
     pub media_preview: Option<String>,
+    pub shortcode: String,
     pub thumbnail_src: String,
     pub is_video: bool,
     pub video_view_count: Option<usize>,
@@ -121,7 +122,7 @@ impl From<PostResponseNode> for Post {
             } else {
                 Some(node.edge_media_to_comment.count as usize)
             },
-            display_url: node.display_url,
+            display_url: node.display_url.replace("\\u0026", "&"),
             height: node.dimensions.height,
             id: node.id,
             is_video: node.is_video,
@@ -131,8 +132,9 @@ impl From<PostResponseNode> for Post {
                 Some(node.edge_media_preview_like.count as usize)
             },
             media_preview: node.media_preview,
+            shortcode: node.shortcode,
             taken_at_timestamp: node.taken_at_timestamp,
-            thumbnail_src: node.thumbnail_src,
+            thumbnail_src: node.thumbnail_src.replace("\\u0026", "&"),
             video_view_count: node.video_view_count.unwrap_or_default(),
             width: node.dimensions.width,
         }

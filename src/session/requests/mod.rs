@@ -5,11 +5,13 @@
 use const_format::concatcp;
 
 mod auth;
+mod comment;
 mod post;
 mod stories;
 mod user;
 
 pub use auth::{LogoutRequest, UsernamePasswordLoginRequest, UsernamePasswordLoginResponse};
+pub use comment::CommentResponse;
 pub use post::PostResponse;
 pub use stories::{HighlightReels, ReelsMedia};
 pub use user::{Image, UserInfoResponse, UserInfoUser, WebProfileResponse};

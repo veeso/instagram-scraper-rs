@@ -4,6 +4,7 @@
 
 use std::time::SystemTime;
 
+/// User post
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub struct Post {
     pub caption: Option<String>,
@@ -15,10 +16,25 @@ pub struct Post {
     pub is_video: bool,
     pub likes: Option<usize>,
     pub media_preview: Option<String>,
+    pub shortcode: String,
     pub taken_at_timestamp: SystemTime,
     pub thumbnail_src: String,
     pub video_view_count: usize,
     pub width: usize,
+}
+
+/// Comment associated to a post
+#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+pub struct Comment {
+    pub id: String,
+    pub text: String,
+    pub created_at: SystemTime,
+    /// Owner user id
+    pub user_id: String,
+    /// Owner username
+    pub username: String,
+    /// owner profile picture
+    pub user_profile_pic: String,
 }
 
 /// Instagram stories

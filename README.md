@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">Developed by <a href="https://veeso.github.io/" target="_blank">@veeso</a></p>
-<p align="center">Current version: 0.1.0 (??/09/2022)</p>
+<p align="center">Current version: 0.1.0 (10/09/2022)</p>
 
 <p align="center">
   <a href="https://opensource.org/licenses/MIT"
@@ -66,7 +66,6 @@
     - [Add instagram-scraper-rs to your Cargo.toml 🦀](#add-instagram-scraper-rs-to-your-cargotoml-)
     - [Examples 🔍](#examples-)
   - [Documentation 📚](#documentation-)
-  - [Apps using instagram-scraper-rs 🚀](#apps-using-instagram-scraper-rs-)
   - [Support the developer ☕](#support-the-developer-)
   - [Contributing and issues 🤝🏻](#contributing-and-issues-)
   - [Changelog ⏳](#changelog-)
@@ -76,11 +75,16 @@
 
 ## About instagram-scraper-rs 📷
 
-TODO
+instagram-scraper-rs is a Rust library that scrapes and downloads an instagram user's photos and videos. Use responsibly.
+It is basically a 1:1 copy of the Python [Instagram-scraper](https://github.com/arc298/instagram-scraper) cli application.
 
 ## Features 🎁
 
-TODO
+- Query profile information
+- Collect the user's profile picture
+- Collect users' posts
+- Collect users' stories
+- Totally async
 
 ---
 
@@ -111,16 +115,6 @@ cargo run --example scraper
 ## Documentation 📚
 
 The developer documentation can be found on Rust Docs at <https://docs.rs/instagram-scraper-rs>
-
----
-
-## Apps using instagram-scraper-rs 🚀
-
-- [termusic](https://github.com/tramhao/termusic)
-- [termscp](https://github.com/veeso/termscp)
-- [tuifeed](https://github.com/veeso/tuifeed)
-
-Want to add yours? Open an issue using the `New app/component` template 😄
 
 ---
 

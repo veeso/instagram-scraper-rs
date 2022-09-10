@@ -64,11 +64,11 @@ impl From<ReelsMediaItem> for Story {
                 .into_iter()
                 .map(|resource| StorySource {
                     height: resource.config_height,
-                    url: resource.src,
+                    url: resource.src.replace("\\u0026", "&"),
                     width: resource.config_width,
                 })
                 .collect(),
-            url: media.display_url,
+            url: media.display_url.replace("\\u0026", "&"),
             expiring_at_timestamp: media.expiring_at_timestamp,
             id: media.id,
             is_video: media.is_video,

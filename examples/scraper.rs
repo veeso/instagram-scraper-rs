@@ -20,11 +20,12 @@ async fn main() -> anyhow::Result<()> {
     // get user info
     let user = scraper.scrape_userinfo(&profile).await?;
     println!(
-        "{}: {} (followers: {}; following {})",
+        "{}: {} (followers: {}; following {}) - user id: {}",
         user.username,
         user.biography.as_deref().unwrap_or_default(),
         user.followers(),
-        user.following()
+        user.following(),
+        user.id
     );
     // get user stories
     let stories = scraper.scrape_user_stories(&user.id, 10).await?;
@@ -46,6 +47,12 @@ async fn main() -> anyhow::Result<()> {
             "latest post: {}",
             post.caption.as_deref().unwrap_or_default()
         );
+        // get comments
+        let comments = scraper.scrape_comments(post, 5).await?;
+        println!("latest 5 comments to the post: ");
+        for comment in comments {
+            println!("{}: {}", comment.username, comment.text);
+        }
     }
 
     // logout

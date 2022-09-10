@@ -3,7 +3,49 @@
 
 //! # Instagram-scraper-rs
 //!
-//! TODO:
+//! instagram-scraper-rs is a Rust library that scrapes and downloads an instagram user's photos and videos. Use responsibly.
+//! It is basically a 1:1 copy of the Python [Instagram-scraper](https://github.com/arc298/instagram-scraper) cli application.
+//!
+//! ## Features
+//!
+//! - Query profile information
+//! - Collect the user's profile picture
+//! - Collect users' posts
+//! - Collect users' stories
+//! - Totally async
+//!
+//! ## Get started
+//!
+//! ### Add instagram-scraper-rs to your Cargo.toml 🦀
+//!
+//! ```toml
+//! instagram-scraper-rs = "^0.1.0"
+//! ```
+//!
+//! Supported features are:
+//!
+//! - `no-log`: disable logging
+//! - `native-tls` (*default*): use native-tls for reqwest
+//! - `rustls`: use rustls for reqwest (you must disable default features)
+//!
+//! ### Instagram scraper setup
+//!
+//! ```rust,ignore
+//! use instagram_scraper_rs::InstagramScraper;
+//!
+//! // setup the scraper
+//! let mut scraper = InstagramScraper::default()
+//!     .authenticate_with_login(username, password);
+//! scraper.login().await?;
+//! // get user info; required to query other data
+//! let user = scraper.scrape_userinfo("tamadogecoin").await?;
+//! // collect user's stories and up to 10 highlighted stories
+//! let stories = scraper.scrape_user_stories(&user.id, 10).await?;
+//! // collect last 10 posts
+//! let posts = scraper.scrape_posts(&user.id, 10).await?;
+//! // logout
+//! scraper.logout().await;
+//! ```
 //!
 
 #![doc(html_playground_url = "https://play.rust-lang.org")]
@@ -22,7 +64,7 @@ use types::Authentication;
 
 // exports
 pub use errors::{InstagramScraperError, InstagramScraperResult};
-pub use types::{Post, Stories, Story, StorySource, User};
+pub use types::{Comment, Post, Stories, Story, StorySource, User};
 
 /// instagram scraper client
 pub struct InstagramScraper {
@@ -100,6 +142,24 @@ impl InstagramScraper {
             return Ok(vec![]);
         }
         self.session.scrape_posts(user_id, max_posts).await
+    }
+
+    /// Scrape comments from a post.
+    /// You can provide the maximum amount of comments to fetch. Use usize::MAX to get all the available posts.
+    /// Keep in mind that a GET request will be sent each 50 posts.
+    pub async fn scrape_comments(
+        &mut self,
+        post: &Post,
+        max_comments: usize,
+    ) -> InstagramScraperResult<Vec<Comment>> {
+        if max_comments == 0 {
+            warn!("max_comments is 0; return empty vector");
+            return Ok(vec![]);
+        }
+        debug!("collecting comments for post {}", post.id);
+        self.session
+            .scrape_comments(&post.shortcode, max_comments)
+            .await
     }
 }
 

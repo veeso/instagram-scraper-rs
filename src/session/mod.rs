@@ -2,7 +2,7 @@
 //!
 //! This module exposes the session for the instagram client
 
-use crate::{Authentication, InstagramScraperError, InstagramScraperResult, Post};
+use crate::{types::Comment, Authentication, InstagramScraperError, InstagramScraperResult, Post};
 
 use reqwest::{header, Client, ClientBuilder, Response};
 
@@ -14,6 +14,7 @@ use requests::{
 pub use crate::{Stories, Story, User};
 
 const DEFAULT_POST_AMOUNT: usize = 50;
+const DEFAULT_COMMENTS_AMOUNT: usize = 50;
 
 /// The session is a storage for values required by the instagram client to work.
 /// It also exposes the instagram HTTP client
@@ -83,12 +84,15 @@ impl Session {
         }
         if let Some(url) = user_info.hd_profile_pic_url_info.url {
             debug!("found hd profile pic {}", url);
-            Ok(Some(url))
+            Ok(Some(url.replace("\\u0026", "&")))
         } else {
             debug!("searching user profile pic in versions");
-            Ok(user_info
-                .hd_profile_pic_versions
-                .and_then(|images| images.into_iter().rev().find_map(|img| img.url)))
+            Ok(user_info.hd_profile_pic_versions.and_then(|images| {
+                images
+                    .into_iter()
+                    .rev()
+                    .find_map(|img| img.url.map(|x| x.replace("\\u0026", "&")))
+            }))
         }
     }
 
@@ -211,24 +215,92 @@ impl Session {
             {
                 Err(err) => return Err(err.into()),
                 Ok(Ok(post_response)) => {
-                    let new_cursor = post_response.end_cursor().to_string();
+                    let new_cursor = post_response.end_cursor().map(|x| x.to_string());
                     let response_posts = post_response.posts();
                     debug!("found {} posts", response_posts.len());
                     posts.extend(response_posts);
                     debug!(
-                        "checking cursor; new cursor: {}; last cursor: {}",
+                        "checking cursor; new cursor: {:?}; last cursor: {}",
                         new_cursor, cursor
                     );
-                    if new_cursor == cursor || posts.len() >= max_posts {
+                    if new_cursor == Some(cursor)
+                        || new_cursor.is_none()
+                        || posts.len() >= max_posts
+                    {
                         debug!("leaving loop");
                         break;
                     }
-                    cursor = new_cursor;
+                    cursor = new_cursor.unwrap();
                 }
                 Ok(Err(err)) => return Err(err.into()),
             }
         }
         Ok(posts)
+    }
+
+    /// Scrape comments
+    pub async fn scrape_comments(
+        &mut self,
+        shortcode: &str,
+        max_comments: usize,
+    ) -> InstagramScraperResult<Vec<Comment>> {
+        self.restrict_authed()?;
+        debug!(
+            "collecting up to {} comments for {}",
+            max_comments, shortcode
+        );
+        let mut comments = Vec::new();
+        let mut cursor = String::default();
+        loop {
+            let amount = if comments.len() + DEFAULT_COMMENTS_AMOUNT > max_comments {
+                max_comments.saturating_sub(comments.len())
+            } else {
+                DEFAULT_COMMENTS_AMOUNT
+            };
+
+            debug!("collecting {} comments from {}", amount, cursor);
+            let params = format!(
+                r#"{{"shortcode":"{}","first":{},"after":"{}"}}"#,
+                shortcode, amount, cursor
+            );
+            let response = self
+                .client
+                .get(format!(
+                    "{}graphql/query/?query_hash=33ba35852cb50da46f5b5e889df7d159&variables={}",
+                    BASE_URL, params
+                ))
+                .send()
+                .await?;
+            Self::restrict_successful(&response)?;
+            self.update_csrftoken(&response);
+            match response
+                .text()
+                .await
+                .map(|t| serde_json::from_str::<requests::CommentResponse>(&t))
+            {
+                Err(err) => return Err(err.into()),
+                Ok(Ok(comment_response)) => {
+                    let new_cursor = comment_response.end_cursor().map(|x| x.to_string());
+                    let comment_response = comment_response.comments();
+                    debug!("found {} comments", comment_response.len());
+                    comments.extend(comment_response);
+                    debug!(
+                        "checking cursor; new cursor: {:?}; last cursor: {}",
+                        new_cursor, cursor
+                    );
+                    if new_cursor == Some(cursor)
+                        || new_cursor.is_none()
+                        || comments.len() >= max_comments
+                    {
+                        debug!("leaving loop");
+                        break;
+                    }
+                    cursor = new_cursor.unwrap();
+                }
+                Ok(Err(err)) => return Err(err.into()),
+            }
+        }
+        Ok(comments)
     }
 
     // -- private
@@ -465,8 +537,30 @@ mod test {
             .await
             .unwrap()
             .id;
-        assert_eq!(session.scrape_posts(&user_id, 10).await.unwrap().len(), 10);
+        let latest_posts = session.scrape_posts(&user_id, 10).await.unwrap();
+        assert_eq!(latest_posts.len(), 10);
+        // Comments
+        let last_post = latest_posts.get(0).unwrap();
+        assert!(session
+            .scrape_comments(&last_post.shortcode, 100)
+            .await
+            .is_ok());
+
+        // logout
         assert!(session.logout().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn should_return_error_if_not_authed() {
+        let mut session = Session::default();
+        assert!(session
+            .scrape_shared_data_userinfo("tamadogecoin")
+            .await
+            .is_err());
+        assert!(session.scrape_comments("53718238932", 10).await.is_err());
+        assert!(session.scrape_posts("53718238932", 10).await.is_err());
+        assert!(session.scrape_profile_pic("53718238932").await.is_err());
+        assert!(session.scrape_stories("53718238932", 10).await.is_err());
     }
 
     async fn user_login() -> Session {
