@@ -7,7 +7,9 @@ use crate::{Authentication, InstagramScraperError, InstagramScraperResult, Post}
 use reqwest::{header, Client, ClientBuilder, Response};
 
 mod requests;
-use requests::{BASE_URL, LOGIN_URL, LOGOUT_URL, STORIES_USER_AGENT, X_CSRF_TOKEN};
+use requests::{
+    BASE_URL, CHROME_WIN_USER_AGENT, LOGIN_URL, LOGOUT_URL, STORIES_USER_AGENT, X_CSRF_TOKEN,
+};
 
 pub use crate::{Stories, Story, User};
 
@@ -237,6 +239,7 @@ impl Session {
             let response = self
                 .client
                 .post(LOGOUT_URL)
+                .header(header::USER_AGENT, CHROME_WIN_USER_AGENT)
                 .form(&requests::LogoutRequest::new(csrf_token.to_string()).form())
                 .send()
                 .await?;
@@ -275,7 +278,6 @@ impl Session {
                     .as_slice(),
             )
             .header(header::REFERER, BASE_URL)
-            .header(header::USER_AGENT, STORIES_USER_AGENT)
             .header(X_CSRF_TOKEN, token.clone())
             .header("X-Requested-With", "XMLHttpRequest")
             .send()
@@ -300,7 +302,6 @@ impl Session {
             .client
             .get(BASE_URL)
             .header(header::REFERER, BASE_URL)
-            .header(header::USER_AGENT, STORIES_USER_AGENT)
             .send()
             .await?;
         Self::restrict_successful(&response)?;
@@ -402,37 +403,15 @@ mod test {
         let mut session = Session::default();
         assert!(session.login(Authentication::Guest).await.is_ok());
         assert!(session.authed());
-    }
-
-    #[cfg(not(feature = "github-ci"))]
-    #[tokio::test]
-    async fn should_login_as_user() {
-        let username =
-            std::env::var("INSTAGRAM_USERNAME").expect("missing env key INSTAGRAM_USERNAME");
-        let password =
-            std::env::var("INSTAGRAM_PASSWORD").expect("missing env key INSTAGRAM_PASSWORD");
-        let mut session = Session::default();
-        assert!(session
-            .login(Authentication::UsernamePassword { username, password })
-            .await
-            .is_ok());
-        assert!(session.authed());
+        assert!(session.logout().await.is_ok());
     }
 
     #[tokio::test]
-    async fn should_scrape_user_profile_picture() {
+    async fn should_logout_as_guest() {
         let mut session = Session::default();
         assert!(session.login(Authentication::Guest).await.is_ok());
-        let user_id = session
-            .scrape_shared_data_userinfo("bigluca.marketing")
-            .await
-            .unwrap()
-            .id;
-        assert!(session
-            .scrape_profile_pic(&user_id)
-            .await
-            .unwrap()
-            .is_some());
+        assert!(session.authed());
+        assert!(session.logout().await.is_ok());
     }
 
     #[tokio::test]
@@ -448,29 +427,59 @@ mod test {
                 .as_str(),
             "bigluca.marketing"
         );
+        assert!(session.logout().await.is_ok());
     }
 
     #[tokio::test]
-    async fn should_scrape_user_stories() {
-        let mut session = Session::default();
-        assert!(session.login(Authentication::Guest).await.is_ok());
+    async fn should_login_as_user_and_scrape_all() {
+        let mut session = user_login().await;
+        assert!(session.authed());
+        // profile pic
+        let user_id = session
+            .scrape_shared_data_userinfo("bigluca.marketing")
+            .await
+            .unwrap()
+            .id;
+        assert!(session
+            .scrape_profile_pic(&user_id)
+            .await
+            .unwrap()
+            .is_some());
+        // Stories
         let user_id = session
             .scrape_shared_data_userinfo("tamadogecoin")
             .await
             .unwrap()
             .id;
-        assert!(session.scrape_stories(&user_id, 9).await.is_ok());
-    }
-
-    #[tokio::test]
-    async fn should_scrape_user_posts() {
-        let mut session = Session::default();
-        assert!(session.login(Authentication::Guest).await.is_ok());
+        let stories = session.scrape_stories(&user_id, 7).await.unwrap();
+        assert_eq!(stories.highlight_stories.len(), 7);
         let user_id = session
             .scrape_shared_data_userinfo("tamadogecoin")
             .await
             .unwrap()
             .id;
+        // Posts
         assert!(session.scrape_posts(&user_id, 100).await.is_ok());
+        let user_id = session
+            .scrape_shared_data_userinfo("chiaraferragni")
+            .await
+            .unwrap()
+            .id;
+        assert_eq!(session.scrape_posts(&user_id, 10).await.unwrap().len(), 10);
+        assert!(session.logout().await.is_ok());
+    }
+
+    async fn user_login() -> Session {
+        let username =
+            std::env::var("INSTAGRAM_USERNAME").expect("missing env key INSTAGRAM_USERNAME");
+        let password =
+            std::env::var("INSTAGRAM_PASSWORD").expect("missing env key INSTAGRAM_PASSWORD");
+        let mut session = Session::default();
+        assert!(session
+            .login(Authentication::UsernamePassword { username, password })
+            .await
+            .is_ok());
+
+        session
     }
 }

@@ -111,3 +111,22 @@ impl Default for InstagramScraper {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    #[tokio::test]
+    async fn should_login_and_logout() {
+        let mut scraper = InstagramScraper::default();
+        assert!(scraper.login().await.is_ok());
+        assert!(scraper.logout().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn should_return_empty_vec_if_scraping_0_posts() {
+        let mut scraper = InstagramScraper::default();
+        assert!(scraper.scrape_posts("aaa", 0).await.unwrap().is_empty());
+    }
+}

@@ -6,4 +6,7 @@ ignore:
   - "/*"
   - "C:/*"
   - "../*"
+  - "src/lib.rs"
   - "src/mock/*"
+  - "src/errors.rs"
+  - "src/types.rs"

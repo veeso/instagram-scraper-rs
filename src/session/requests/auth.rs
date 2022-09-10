@@ -76,11 +76,25 @@ mod test {
     fn should_build_username_password_login_request() {
         let req = UsernamePasswordLoginRequest::new("pippo".to_string(), "secret".to_string());
         assert_eq!(&req.username, "pippo");
+        let enc_password = req.enc_password.clone();
+        assert_eq!(
+            req.form(),
+            vec![
+                ("username".to_string(), "pippo".to_string()),
+                ("enc_password".to_string(), enc_password),
+                ("queryParams".to_string(), "{}".to_string()),
+                ("optIntoOneTap".to_string(), "false".to_string()),
+            ]
+        );
     }
 
     #[test]
     fn should_build_logout_request() {
         let req = LogoutRequest::new("token".to_string());
         assert_eq!(&req.csrfmiddlewaretoken, "token");
+        assert_eq!(
+            req.form(),
+            vec![("csrfmiddlewaretoken".to_string(), "token".to_string()),]
+        );
     }
 }
