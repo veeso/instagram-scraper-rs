@@ -5,7 +5,6 @@
     - [Questions](#questions)
     - [Bug reports](#bug-reports)
     - [Feature requests](#feature-requests)
-  - [Preferred contributions](#preferred-contributions)
   - [Pull Request Process](#pull-request-process)
     - [Software guidelines](#software-guidelines)
 
@@ -62,15 +61,6 @@ It is very important to follow these steps, since it will prevent you from worki
 Always mind that your suggestion, may be rejected: I'll always provide a feedback on the reasons that brought me to reject your feature, just try not to get mad about that.
 
 ---
-
-## Preferred contributions
-
-At the moment, these kind of contributions are more appreciated and should be preferred:
-
-- Fix for issues described in [Known Issues](./README.md#known-issues-) or [issues reported by the community](https://github.com/veeso/tui-realm/issues)
-- Code optimizations: any optimization to the code is welcome
-
-For any other kind of contribution, especially for new features, please submit a new issue first.
 
 ## Pull Request Process
 
