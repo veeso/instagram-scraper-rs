@@ -4,8 +4,6 @@
 <p align="center">
   <a href="#get-started-">Get started</a>
   ·
-  <a href="https://github.com/veeso/instagram-scraper-rs-stdlib" target="_blank">Standard Library</a>
-  ·
   <a href="https://docs.rs/instagram-scraper-rs" target="_blank">Documentation</a>
 </p>
 
@@ -115,19 +113,6 @@ cargo run --example scraper
 ## Documentation 📚
 
 The developer documentation can be found on Rust Docs at <https://docs.rs/instagram-scraper-rs>
-
----
-
-## Support the developer ☕
-
-If you like instagram-scraper-rs and you're grateful for the work I've done, please consider a little donation 🥳
-
-You can make a donation with one of these platforms:
-
-[![ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/veeso)
-[![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.me/chrisintin)
-[![bitcoin](https://img.shields.io/badge/Bitcoin-ff9416?style=for-the-badge&logo=bitcoin&logoColor=white)](https://btc.com/bc1qvlmykjn7htz0vuprmjrlkwtv9m9pan6kylsr8w)
-[![litecoin](https://img.shields.io/badge/Litecoin-345d9d?style=for-the-badge&logo=Litecoin&logoColor=white)](https://blockchair.com/litecoin/address/ltc1q89a7f859gt7nuekvnuuc25wapkq2f8ny78mp8l)
 
 ---
 
